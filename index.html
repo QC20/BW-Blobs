@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circle Shader Visualization</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #000;
+        }
+        #canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <script id="shader-fs" type="x-shader/x-fragment">
+        precision mediump float;
+
+        uniform float u_time;
+        uniform vec2 u_mouse;
+        uniform vec2 u_resolution;
+
+        float circle(in vec2 pos, in vec2 center, in float radius) {
+            float d = distance(pos, center) + 0.001;
+            return radius / d;
+        }
+
+        float random(float v) {
+            return fract(sin(v) * 64453.2412);
+        }
+
+        void main(void) {
+            float v = 0.0;
+            for (int i = 0; i < 10; i++) {
+                vec2 center = u_resolution / 2.0 + 200.0 * vec2(sin(u_time * random(float(i + 1)) * 0.003), sin(u_time * random(float(i * 2 + 1)) * 0.003));
+                v += circle(gl_FragCoord.xy, center, 15.0);
+            }
+            gl_FragColor = vec4(vec3(v), 1.0);
+        }
+    </script>
+    <script id="shader-vs" type="x-shader/x-vertex">
+        attribute vec3 position;
+
+        void main(void) {
+            gl_Position = vec4(position, 1.0);
+        }
+    </script>
+
+    <script>
+        // Initialize WebGL and set up shaders
+        const canvas = document.getElementById('canvas');
+        const gl = canvas.getContext('webgl');
+
+        if (!gl) {
+            console.error('WebGL not supported');
+            throw new Error('WebGL not supported');
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('An error occurred compiling the shaders:', gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        const vertexShaderSource = document.getElementById('shader-vs').text;
+        const fragmentShaderSource = document.getElementById('shader-fs').text;
+
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+
+        const shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
+
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+            console.error('Unable to initialize the shader program:', gl.getProgramInfoLog(shaderProgram));
+            return null;
+        }
+
+        gl.useProgram(shaderProgram);
+
+        const positionAttributeLocation = gl.getAttribLocation(shaderProgram, 'position');
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+        const positions = [
+            -1.0, -1.0,
+            1.0, -1.0,
+            -1.0, 1.0,
+            -1.0, 1.0,
+            1.0, -1.0,
+            1.0, 1.0,
+        ];
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+        const vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+        gl.enableVertexAttribArray(positionAttributeLocation);
+        gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
+
+        const uResolutionLocation = gl.getUniformLocation(shaderProgram, 'u_resolution');
+        const uTimeLocation = gl.getUniformLocation(shaderProgram, 'u_time');
+        const uMouseLocation = gl.getUniformLocation(shaderProgram, 'u_mouse');
+
+        function render(time) {
+            time *= 0.001; // convert time to seconds
+
+            gl.uniform2f(uResolutionLocation, canvas.width, canvas.height);
+            gl.uniform1f(uTimeLocation, time);
+            gl.uniform2f(uMouseLocation, 0.5 * canvas.width, 0.5 * canvas.height); // Example static mouse position
+
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+            requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render);
+    </script>
+    <script src="src/javascript/sketch.js"></script>
+</body>
+</html>
